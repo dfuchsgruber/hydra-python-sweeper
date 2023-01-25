@@ -18,6 +18,8 @@ from omegaconf import DictConfig, OmegaConf
 
 from hydra.utils import get_method
 
+from .utils import merge_overrides, compress_override
+
 # IMPORTANT:
 # If your plugin imports any module that takes more than a fraction of a second to import,
 # Import the module lazily (typically inside sweep()).
@@ -106,23 +108,9 @@ class PythonSweeper(Sweeper):
     
     def _make_batches(self, cli_overrides: List[Override]) -> List[Tuple[str]]:
         """ Makes the batches. """
-        
-        def merge_overrides(cli_overrides: List[Tuple[str, str]], 
-                                 *python_overrides: Sequence[List[Tuple[str, str]]]
-                                 ) -> List[Tuple[Tuple[str, str]]]:
-            """ Merges command line and python overrides. If both override the same
-            key, command line overrides have higher precedence. """
-            cli_override_keys = set(tpl[0].lstrip('+') for tpl in cli_overrides)
-            return cli_overrides + sum(
-                (tuple(tpl for tpl in overrides if tpl[0] not in cli_override_keys) for overrides in python_overrides), 
-                start=tuple())
-            
-        batches = list(map(lambda args: merge_overrides(*args), 
-                        itertools.product(
-                            self._make_cli_overrides(cli_overrides), 
-                            *self._make_python_overrides())))
-        
-        batches = [tuple(f"{key}={value}" for key, value in batch) for batch in batches]
+        batches = merge_overrides(self._make_cli_overrides(cli_overrides),
+                                  *self._make_python_overrides())
+        batches = [tuple(f"{key}={value}" for key, value in batch) for batch in map(compress_override, batches)]
         if self.remove_duplicates:
             batches = list(dict.fromkeys(batches)) # repsects ordering as of python 3.8
         return batches

@@ -1,13 +1,14 @@
 # example entrypoint for the plugin
 
-from typing import Iterable, Tuple, Any
+from typing import Iterable, Tuple, Any, List
 import itertools
 
-def configure() -> Iterable[Tuple[str, Any]]:
+
+def configure() -> Iterable[Iterable[Tuple[str, Any]]]:
     """This method computes all initializations of arguments to sweep over.
 
     Returns:
-        List[Tuple[str, str]]: A sequence of lists of key, value pairs
+        Iterable[Iterable[Tuple[str, str]]]: A sequence of sequences of key, value pairs
     """
     sweep = []
     for num_layers in range(1, 4):
@@ -17,3 +18,20 @@ def configure() -> Iterable[Tuple[str, Any]]:
                 'num_hidden' : list(num_hidden),
             }.items())
     return sweep
+
+def configure_batch_norm() -> Iterable[Iterable[Tuple[str, Any]]]:
+    return [
+        (('+batch_norm', True),),
+        (('+batch_norm', False),)
+    ]
+
+def configure_with_subconfig() -> Iterable[Tuple[str, Any]]:
+    from .subconfig import subconfig
+    from hydra_plugins.python_sweeper_plugin.utils import merge_overrides
+    return merge_overrides(
+        configure(),
+        subconfig.configure(),
+    )
+    
+    
+    

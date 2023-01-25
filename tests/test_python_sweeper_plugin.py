@@ -11,6 +11,58 @@ from hydra.test_utils.launcher_common_tests import (
 from hydra.test_utils.test_utils import TSweepRunner
 
 from hydra_plugins.python_sweeper_plugin.python_sweeper import PythonSweeper
+from hydra_plugins.python_sweeper_plugin.utils import merge_overrides, compress_override
+
+def test_merge_overrides() -> None:
+    overrides0 = [
+        (('foo', 1), ('bar', 0)),
+        (('foo', 2), ('bar', 0)),
+    ]
+    overrides1 = [
+        (('food', 3), ('bizz', 1)),
+        (('food', 4), ('bizz', 2)),
+    ]
+    merged = merge_overrides(overrides0, overrides1)
+    assert len(merged) == 4
+    assert merged[0] == (('foo', 1), ('bar', 0), ('food', 3), ('bizz', 1))
+    assert merged[1] == (('foo', 1), ('bar', 0), ('food', 4), ('bizz', 2))
+    assert merged[2] == (('foo', 2), ('bar', 0), ('food', 3), ('bizz', 1))
+    assert merged[3] == (('foo', 2), ('bar', 0), ('food', 4), ('bizz', 2))
+    
+def test_compress_overrides() -> None:
+    overrides = [
+        (('foo', 1), ('bar', 3), ('foo', 2), ('bizz', 55)),
+        (('foo', 1), ('bar', 3), ('+foo', 2), ('bizz', 55)),
+        (('+foo', 1), ('bar', 3), ('+foo', 2), ('bizz', 55)),
+    ]
+    compressed = list(map(compress_override, overrides))
+    assert len(compressed) == 3
+    assert compressed[0] == (('foo', 1), ('bar', 3), ('bizz', 55))
+    assert compressed[1] == (('foo', 1), ('bar', 3), ('bizz', 55))
+    assert compressed[2] == (('+foo', 1), ('bar', 3), ('bizz', 55))
+    
+
+def test_subconfig(hydra_sweep_runner: TSweepRunner) -> None:
+    sweep = hydra_sweep_runner(
+        calling_file=__file__,
+        calling_module=None,
+        config_path="configs",
+        config_name="overrides.yaml",
+        task_function=None,
+        overrides=["hydra/sweeper=python", "hydra/launcher=basic", "hydra.sweeper.entrypoints=[configs.overrides.configure_with_subconfig]", "foo=1"],
+    )
+    with sweep:
+        assert sweep.returns is not None
+        job_ret = sweep.returns[0]
+        assert len(job_ret) == 4
+        assert job_ret[0].overrides == ["foo=1", "+bizz=1", "+sub=3"]
+        assert job_ret[0].cfg == {"foo": 1, "bizz": 1, "sub" : 3}
+        assert job_ret[1].overrides == ["foo=1", "+bizz=1", "+sub=[1, 1]"]
+        assert job_ret[1].cfg == {"foo": 1, "bizz": 1, "sub" : [1, 1]}
+        assert job_ret[2].overrides == ["foo=1", "+bizz=11", "+sub=3"]
+        assert job_ret[2].cfg == {"foo": 1, "bizz": 11, "sub" : 3}
+        assert job_ret[3].overrides == ["foo=1", "+bizz=11", "+sub=[1, 1]"]
+        assert job_ret[3].cfg == {"foo": 1, "bizz": 11, "sub" : [1, 1]}
 
 def test_multiple_entrypoints(hydra_sweep_runner: TSweepRunner) -> None:
     sweep = hydra_sweep_runner(
