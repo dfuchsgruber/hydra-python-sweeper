@@ -31,7 +31,7 @@ def configure():
             sweep.append({
                 'num_layers' : num_layers,
                 'num_hidden' : list(num_hidden),
-            })
+            }.items())
     return sweep
 ```
 
