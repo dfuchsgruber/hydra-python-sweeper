@@ -1,0 +1,9 @@
+defaults:
+  - override hydra/sweeper: python
+
+hydra:
+  sweeper:
+    entrypoint: config.multilayer.configure
+
+num_layers: ???
+num_hidden: ???

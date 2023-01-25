@@ -1,0 +1,38 @@
+[build-system]
+requires = ["flit_core >=3.5,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "hydra-python-sweeper"
+version = "0.1.1"
+description = "A hydra sweeper with overrides defined from a Python entrypoint"
+readme = "README.md"
+requires-python = ">= 3.8"
+license = {file = "LICENSE"}
+authors = [{name = "Dominik Fuchsgruber", email = "d.fuchsgruber@tum.de"}]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python"
+]
+dependencies = [
+  "hydra-core",
+  "more-itertools"
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.urls]
+homepage = "https://github.com/WodkaRHR/hydra_python_sweeper"
+
+[tool.flit.module]
+name = "hydra_plugins.python_sweeper_plugin"
+
+[tool.flit.sdist]
+exclude = ["tests/", "example/"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
