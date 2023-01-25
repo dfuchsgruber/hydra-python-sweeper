@@ -1,6 +1,6 @@
 # Hydra Python Sweeper
 
-Provides a sweeper for [Hydra](https://hydra.cc) that extends sweeps using a custom python entrypoint. This allows to define complex experiment configurations that can not be obtained as a cartesian product of individual parameter settings. Imagine for example running an experiment where you want to define a model with a variable amount of layers and number of hidden units within. Say, the number of layers should be between 1 and 3 and for each layer you want to experiment with either 32 or 64 hidden units.
+Provides a sweeper for [Hydra](https://hydra.cc) that extends sweeps using a custom python entrypoint(s). This allows to define complex experiment configurations that can not be obtained as a cartesian product of individual parameter settings. Imagine for example running an experiment where you want to define a model with a variable amount of layers and number of hidden units within. Say, the number of layers should be between 1 and 3 and for each layer you want to experiment with either 32 or 64 hidden units.
 
 Running with the standard hydra sweeper, e.g. `python train.py --config-name multilayer -m num_hidden_first=32,64 num_hidden_second=32,64, num_hidden_third=32,64, num_layers=1,2,3` creates 24 configrations, while only 14 will be needed. Instead, this plugin allows to define the sweep in pure python code.
 
@@ -11,7 +11,8 @@ defaults:
 
 hydra:
     sweeper:
-        entrypoint: config.multilayer.configure
+        entrypoints: 
+            - config.multilayer.configure
 
 # other model settings
 num_layers: ???
@@ -56,8 +57,8 @@ pip install .
 # @package hydra.sweeper
 _target_: hydra_plugins.hydra_python_sweeper.python_sweeper.PythonSweeper
 max_batch_size: null
-# entrypoint for python, can be null
-entrypoint: null
+# entrypoints for python, can be null
+entrypoints: []
 # removes duplicate configurations
 remove_duplicates: false
 ```
@@ -70,7 +71,7 @@ Running the [example](https://github.com/WodkaRHR/hydra_python_lancher/blob/main
     <summary>Experiment invocation and output</summary>
 
 ```
-[2023-01-25 10:43:48,931][HYDRA] PythonSweeper(max_batch_size=None, entrypoint='config.example.configure') sweeping
+[2023-01-25 10:43:48,931][HYDRA] PythonSweeper(max_batch_size=None, entrypoints=['config.example.configure']) sweeping
 [2023-01-25 10:43:48,934][HYDRA] Sweep output dir : multirun/2023-01-25/10-43-48
 [2023-01-25 10:43:50,170][HYDRA] Launching 14 jobs locally
 [2023-01-25 10:43:50,170][HYDRA]        #0 : num_layers=1 num_hidden=[32]
@@ -165,11 +166,11 @@ num_hidden:
 ```
 </details>
 
-The entrypoint method should take no arguments and return an `Iterable` of `Tuple`s that are the key-value pairs for overriding. The order will be respected when launching jobs.
+Each entrypoint method should take no arguments and return an `Iterable` of `Tuple`s that are the key-value pairs for overriding. The order will be respected when launching jobs.
 
 ### Combining with command line overrides
 
-Furthermore, the python entrypoint sweep settings can be combined with command line overrides. To that end, the cartesian product between all command line configurations and python configurations will be launched. For example, if the command line overrides define 8 settings and the python entrypoint defines 14 settings, 8 * 14 jobs will be launched.
+Furthermore, the python entrypoint sweep settings can be combined with command line overrides. To that end, the cartesian product between all command line configurations and python configurations will be launched. For example, if the command line overrides define 8 settings and the python entrypoints define 14 settings, 8 * 14 jobs will be launched.
 
 If both the command line overrides and python overrides define the same key, the command line override will preceed. Running the [example](https://github.com/WodkaRHR/hydra_python_lancher/blob/main/example/train.py) with `python example/train.py --config-name multilayer -m +activation=relu,tanh` launches the configured jobs.
 
@@ -177,7 +178,7 @@ If both the command line overrides and python overrides define the same key, the
     <summary>Experiment invocation and output</summary>
 
 ```
-[2023-01-25 10:53:26,289][HYDRA] PythonSweeper(max_batch_size=None, entrypoint='config.example.configure') sweeping
+[2023-01-25 10:53:26,289][HYDRA] PythonSweeper(max_batch_size=None, entrypoints=['config.example.configure']) sweeping
 [2023-01-25 10:53:26,291][HYDRA] Sweep output dir : multirun/2023-01-25/10-53-26
 [2023-01-25 10:53:28,780][HYDRA] Launching 28 jobs locally
 [2023-01-25 10:53:28,780][HYDRA] 	#0 : +activation=relu num_layers=1 num_hidden=[32]
@@ -399,7 +400,7 @@ To prevent duplicate configurations from being launched (potentially due to comb
     <summary>Experiment invocation and output</summary>
 
 ```
-[2023-01-25 11:10:47,779][HYDRA] PythonSweeper(max_batch_size=None, entrypoint='config.multilayer.configure') sweeping
+[2023-01-25 11:10:47,779][HYDRA] PythonSweeper(max_batch_size=None, entrypoints=['config.multilayer.configure']) sweeping
 [2023-01-25 11:10:47,781][HYDRA] Sweep output dir : multirun/2023-01-25/11-10-47
 [2023-01-25 11:10:49,107][HYDRA] Launching 14 jobs locally
 [2023-01-25 11:10:49,107][HYDRA] 	#0 : +activation=relu num_layers=1 num_hidden=[32]

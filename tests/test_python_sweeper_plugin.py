@@ -12,6 +12,43 @@ from hydra.test_utils.test_utils import TSweepRunner
 
 from hydra_plugins.python_sweeper_plugin.python_sweeper import PythonSweeper
 
+def test_multiple_entrypoints(hydra_sweep_runner: TSweepRunner) -> None:
+    sweep = hydra_sweep_runner(
+        calling_file=__file__,
+        calling_module=None,
+        config_path="configs",
+        config_name="overrides.yaml",
+        task_function=None,
+        overrides=["hydra/sweeper=python", "hydra/launcher=basic", "hydra.sweeper.entrypoints=[configs.overrides.configure_cli_overrides_python, configs.overrides.configure_2]", "foo=1,2"],
+    )
+    with sweep:
+        assert sweep.returns is not None
+        job_ret = sweep.returns[0]
+        assert len(job_ret) == 8
+        assert job_ret[0].overrides == ["foo=1", "+bar=0", "+bizz=1"]
+        assert job_ret[0].cfg == {"foo": 1, "bar": 0, "bizz" : 1}
+        
+        assert job_ret[1].overrides == ["foo=1", "+bar=0", "+bizz=11"]
+        assert job_ret[1].cfg == {"foo": 1, "bar": 0, "bizz" : 11}
+        
+        assert job_ret[2].overrides == ["foo=1", "+bar=1", "+bizz=1"]
+        assert job_ret[2].cfg == {"foo": 1, "bar": 1, "bizz" : 1}
+        
+        assert job_ret[3].overrides == ["foo=1", "+bar=1", "+bizz=11"]
+        assert job_ret[3].cfg == {"foo": 1, "bar": 1, "bizz" : 11}
+        
+        assert job_ret[4].overrides == ["foo=2", "+bar=0", "+bizz=1"]
+        assert job_ret[4].cfg == {"foo": 2, "bar": 0, "bizz" : 1}
+        
+        assert job_ret[5].overrides == ["foo=2", "+bar=0", "+bizz=11"]
+        assert job_ret[5].cfg == {"foo": 2, "bar": 0, "bizz" : 11}
+        
+        assert job_ret[6].overrides == ["foo=2", "+bar=1", "+bizz=1"]
+        assert job_ret[6].cfg == {"foo": 2, "bar": 1, "bizz" : 1}
+        
+        assert job_ret[7].overrides == ["foo=2", "+bar=1", "+bizz=11"]
+        assert job_ret[7].cfg == {"foo": 2, "bar": 1, "bizz" : 11}
+    
 def test_discovery() -> None:
     # Tests that this plugin can be discovered via the plugins subsystem when looking at the Sweeper plugins
     assert PythonSweeper.__name__ in [
@@ -45,7 +82,7 @@ def test_cli_overrides_python(hydra_sweep_runner: TSweepRunner) -> None:
         config_path="configs",
         config_name="overrides.yaml",
         task_function=None,
-        overrides=["hydra/sweeper=python", "hydra/launcher=basic", "hydra.sweeper.entrypoint=configs.overrides.configure_cli_overrides_python", "foo=1,2"],
+        overrides=["hydra/sweeper=python", "hydra/launcher=basic", "hydra.sweeper.entrypoints=[configs.overrides.configure_cli_overrides_python]", "foo=1,2"],
     )
     with sweep:
         assert sweep.returns is not None
@@ -77,7 +114,7 @@ def test_remove_duplicates(hydra_sweep_runner: TSweepRunner) -> None:
         assert job_ret[0].overrides == ["foo=1", "+bar=1"]
         assert job_ret[0].cfg == {"foo": 1, "bar": 1}
         
-def test_entrypoint(hydra_sweep_runner: TSweepRunner) -> None:
+def test_entrypoints(hydra_sweep_runner: TSweepRunner) -> None:
     sweep = hydra_sweep_runner(
         calling_file=__file__,
         calling_module=None,
@@ -85,7 +122,7 @@ def test_entrypoint(hydra_sweep_runner: TSweepRunner) -> None:
         config_name="overrides.yaml",
         task_function=None,
         overrides=["hydra/sweeper=python", "hydra/launcher=basic",
-                   "hydra.sweeper.entrypoint=configs.overrides.configure_cli_overrides_python"],
+                   "hydra.sweeper.entrypoints=[configs.overrides.configure_cli_overrides_python]"],
     )
     with sweep:
         assert sweep.returns is not None

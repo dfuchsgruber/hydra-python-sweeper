@@ -1,5 +1,5 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import itertools, more_itertools
 import logging
@@ -37,7 +37,7 @@ class SweeperConfig:
     # max number of jobs to run in the same batch.
     max_batch_size: Optional[int] = None
     # python entrypoint
-    entrypoint: Optional[str] = None
+    entrypoints: List[str] = field(default_factory=list)
     # whether to remove duplicate configurations
     remove_duplicates: bool = False
 
@@ -47,9 +47,9 @@ ConfigStore.instance().store(group="hydra/sweeper", name="python", node=SweeperC
 
 class PythonSweeper(Sweeper):
     
-    def __init__(self, max_batch_size: Optional[int], entrypoint: Optional[str], remove_duplicates: bool):
+    def __init__(self, max_batch_size: Optional[int], entrypoints: Sequence[str], remove_duplicates: bool):
         self.max_batch_size = max_batch_size
-        self.entrypoint: Optional[str] = entrypoint
+        self.entrypoints: Sequence[str] = entrypoints
         self.remove_duplicates: bool = remove_duplicates
         self.config: Optional[DictConfig] = None
         self.launcher: Optional[Launcher] = None
@@ -72,7 +72,7 @@ class PythonSweeper(Sweeper):
     def __repr__(self) -> str:
         return (
             f"PythonSweeper(max_batch_size={self.max_batch_size!r}, "
-            f"entrypoint={self.entrypoint!r})"
+            f"entrypoint={self.entrypoints!r})"
         )
 
     def _save_sweep_config(self):
@@ -96,28 +96,32 @@ class PythonSweeper(Sweeper):
                 lists.append([(key, val)])
         return list(itertools.product(*lists))
                 
-    def _make_python_overrides(self) -> List[List[Tuple[str, str]]]:
+    def _make_python_overrides(self) -> Sequence[List[List[Tuple[str, str]]]]:
         """ Gets all overrides from the python entrypoint. """
-        if self.entrypoint is None:
-            return [[]]
-        else:
-            method = get_method(self.entrypoint)
-            return [tuple(overrides) for overrides in method()]
+        result = [[[]]]
+        for entrypoint in self.entrypoints:
+            method = get_method(entrypoint)
+            result.append([tuple(overrides) for overrides in method()])
+        return result
     
     def _make_batches(self, cli_overrides: List[Override]) -> List[Tuple[str]]:
         """ Makes the batches. """
         
-        def merge_override_pairs(cli_overrides: List[Tuple[str, str]], 
-                                 python_overrides: List[Tuple[str, str]]
+        def merge_overrides(cli_overrides: List[Tuple[str, str]], 
+                                 *python_overrides: Sequence[List[Tuple[str, str]]]
                                  ) -> List[Tuple[Tuple[str, str]]]:
             """ Merges command line and python overrides. If both override the same
             key, command line overrides have higher precedence. """
             cli_override_keys = set(tpl[0].lstrip('+') for tpl in cli_overrides)
-            return cli_overrides + tuple(tpl for tpl in python_overrides if tpl[0] not in cli_override_keys)
-        batches = list(map(lambda pair: merge_override_pairs(pair[0], pair[1]), 
+            return cli_overrides + sum(
+                (tuple(tpl for tpl in overrides if tpl[0] not in cli_override_keys) for overrides in python_overrides), 
+                start=tuple())
+            
+        batches = list(map(lambda args: merge_overrides(*args), 
                         itertools.product(
                             self._make_cli_overrides(cli_overrides), 
-                            self._make_python_overrides())))
+                            *self._make_python_overrides())))
+        
         batches = [tuple(f"{key}={value}" for key, value in batch) for batch in batches]
         if self.remove_duplicates:
             batches = list(dict.fromkeys(batches)) # repsects ordering as of python 3.8

@@ -3,7 +3,8 @@ defaults:
 
 hydra:
   sweeper:
-    entrypoint: config.multilayer.configure
+    entrypoints: 
+      - config.multilayer.configure
 
 num_layers: ???
 num_hidden: ???
